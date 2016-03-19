@@ -1,4 +1,4 @@
-// Package middleware implements a simple HTTP server middleware layer
+// Package layer implements a simple HTTP server middleware layer
 // used internally by vinci to compose and trigger the middleware chain.
 package layer
 
@@ -30,7 +30,7 @@ type Handler interface {
 // HandlerFunc represents the required function interface for simple middleware handlers.
 type HandlerFunc func(http.ResponseWriter, *http.Request)
 
-// HandleFuncNext is a handler
+// HandlerFuncNext represents a Negroni-like handler function notation.
 type HandlerFuncNext func(w http.ResponseWriter, r *http.Request, h http.Handler)
 
 // MiddlewareFunc represents the vinci's middleware capable interface.
@@ -53,13 +53,22 @@ type Middleware interface {
 type Priority int
 
 const (
+	// Head priority defines the middleware handlers
+	// in the head of the middleware stack.
 	Head Priority = iota
+
+	// Normal priority defines the middleware handlers
+	// in the last middleware stack available.
 	Normal
+
+	// Tail priority defines the middleware handlers
+	// in the tail of the middleware stack.
 	Tail
 )
 
 // Stack stores the data to show.
 type Stack struct {
+	Head  []MiddlewareFunc
 	Stack []MiddlewareFunc
 	Tail  []MiddlewareFunc
 }
@@ -67,7 +76,7 @@ type Stack struct {
 // Push pushes a new middleware handler to the stack based on the given priority.
 func (s *Stack) Push(order Priority, h MiddlewareFunc) {
 	if order == Head {
-		s.Stack = append([]MiddlewareFunc{h}, s.Stack...)
+		s.Head = append(s.Head, h)
 	} else if order == Tail {
 		s.Tail = append(s.Tail, h)
 	} else {
@@ -77,12 +86,12 @@ func (s *Stack) Push(order Priority, h MiddlewareFunc) {
 
 // Join joins the middleware functions into a unique slice.
 func (s *Stack) Join() []MiddlewareFunc {
-	return append(s.Stack, s.Tail...)
+	return append(append(s.Head, s.Stack...), s.Tail...)
 }
 
 // Len returns the middleware stack length.
 func (s *Stack) Len() int {
-	return len(s.Stack) + len(s.Tail)
+	return len(s.Stack) + len(s.Tail) + len(s.Head)
 }
 
 // Pool represents the phase-specific stack to store middleware functions.
@@ -118,14 +127,14 @@ func (s *Layer) UseTail(handler ...interface{}) {
 	s.push("request", Tail, handler...)
 }
 
-// Use registers a new request handler in the middleware stack.
-func (s *Layer) UseError(handler ...interface{}) {
-	s.UsePhase("error", handler...)
-}
-
-// UseError registers a new error handler in the current middleware stack.
+// UsePhase registers a new middleware handler in the current middleware stack.
 func (s *Layer) UsePhase(phase string, handler ...interface{}) {
 	s.push(phase, Normal, handler...)
+}
+
+// UsePhasePriority registers a new error handler in the current middleware stack.
+func (s *Layer) UsePhasePriority(phase string, priority Priority, handler ...interface{}) {
+	s.push(phase, priority, handler...)
 }
 
 // UseFinalHandler uses a new http.Handler as final middleware call chain handler.
@@ -142,7 +151,7 @@ func (s *Layer) push(phase string, order Priority, handler ...interface{}) *Laye
 
 	pool := s.Pool[phase]
 	for _, fn := range handler {
-		mw := adapt(fn)
+		mw := AdaptFunc(fn)
 		if mw == nil {
 			panic("vinci: unsupported middleware interface")
 		}
@@ -162,9 +171,14 @@ func (s *Layer) SetAll(stack Pool) {
 	s.Pool = stack
 }
 
-// Pool gets the current middleware pool.
+// GetAll gets all the current middleware pool.
 func (s *Layer) GetAll() Pool {
 	return s.Pool
+}
+
+// GetAllByPhase gets all the current middleware stack by the given phase.
+func (s *Layer) GetAllByPhase(phase string) *Stack {
+	return s.Pool[phase]
 }
 
 // Run triggers the middleware call chain for the given phase.

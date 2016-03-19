@@ -2,7 +2,12 @@ package layer
 
 import "net/http"
 
-func adapt(h interface{}) MiddlewareFunc {
+// AdaptFunc adapts the given function polumorphic interface
+// casting into a MiddlewareFunc capable interface.
+//
+// Currently support five different interface notations,
+// wrapping it accordingly to make homogeneus.
+func AdaptFunc(h interface{}) MiddlewareFunc {
 	// Vinci/Alice interface
 	if mw, ok := h.(func(h http.Handler) http.Handler); ok {
 		return MiddlewareFunc(mw)
