@@ -36,6 +36,13 @@ type HandlerFuncNext func(w http.ResponseWriter, r *http.Request, h http.Handler
 // MiddlewareFunc represents the vinci's middleware capable interface.
 type MiddlewareFunc func(h http.Handler) http.Handler
 
+// Plugin represents the required interface.
+type Plugin interface {
+	// Register is designed to allow the plugin developers
+	// to attach multiple middleware layers.
+	Register(*Layer)
+}
+
 // Middleware especifies the required interface that must be
 // implemented by middleware capable interfaces.
 type Middleware interface {
@@ -150,8 +157,15 @@ func (s *Layer) push(phase string, order Priority, handler ...interface{}) *Laye
 	}
 
 	pool := s.Pool[phase]
-	for _, fn := range handler {
-		mw := AdaptFunc(fn)
+	for _, h := range handler {
+		// Vinci's plugin interface
+		if mw, ok := h.(Plugin); ok {
+			mw.Register(s)
+			continue
+		}
+
+		// Otherwise infer function interface
+		mw := AdaptFunc(h)
 		if mw == nil {
 			panic("vinci: unsupported middleware interface")
 		}

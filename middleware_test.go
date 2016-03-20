@@ -2,7 +2,7 @@ package layer
 
 import (
 	"github.com/nbio/st"
-	"gopkg.in/vinci-proxy/vinci.v0/utils"
+	"gopkg.in/vinci-proxy/utils.v0"
 	"net/http"
 	"testing"
 )
