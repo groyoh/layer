@@ -48,3 +48,45 @@ func TestSimpleMiddlewareCallChain(t *testing.T) {
 	mw.Run("request", wrt, req, final)
 	st.Expect(t, calls, 4)
 }
+
+func BenchmarkLayerRun(b *testing.B) {
+	w := utils.NewWriterStub()
+	req := &http.Request{}
+
+	mw := New()
+	for i := 0; i < 100; i++ {
+		mw.Use(RequestPhase, func(h http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("foo", string(i))
+				h.ServeHTTP(w, r)
+			})
+		})
+	}
+
+	for n := 0; n < b.N; n++ {
+		mw.Run(RequestPhase, w, req, http.HandlerFunc(nil))
+	}
+}
+
+func BenchmarkStackLayers(b *testing.B) {
+	w := utils.NewWriterStub()
+	req := &http.Request{}
+
+	handler := func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("foo", "bar")
+			h.ServeHTTP(w, r)
+		})
+	}
+
+	mw := New()
+	for i := 0; i < 100; i++ {
+		mw.UsePriority(RequestPhase, Head, handler)
+		mw.UsePriority(RequestPhase, Normal, handler)
+		mw.UsePriority(RequestPhase, Tail, handler)
+	}
+
+	for n := 0; n < b.N; n++ {
+		mw.Run(RequestPhase, w, req, http.HandlerFunc(nil))
+	}
+}
