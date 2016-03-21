@@ -10,14 +10,14 @@ import (
 func TestMiddleware(t *testing.T) {
 	mw := New()
 
-	mw.Use(func(h http.Handler) http.Handler {
+	mw.Use(RequestPhase, func(h http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("foo", "bar")
 			h.ServeHTTP(w, r)
 		})
 	})
 
-	st.Expect(t, mw.GetAll()["request"].Len(), 1)
+	st.Expect(t, mw.Pool["request"].Len(), 1)
 
 	w := utils.NewWriterStub()
 	req := &http.Request{}
@@ -38,19 +38,13 @@ func TestSimpleMiddlewareCallChain(t *testing.T) {
 		calls++
 	})
 
-	mw.Use(fn)
-	mw.Use(fn)
-	mw.Use(fn)
+	mw.Use(RequestPhase, fn)
+	mw.Use(RequestPhase, fn)
+	mw.Use(RequestPhase, fn)
 
 	wrt := utils.NewWriterStub()
 	req := &http.Request{}
 
 	mw.Run("request", wrt, req, final)
 	st.Expect(t, calls, 4)
-}
-
-type responseStub struct {
-	status int
-	body   []byte
-	header http.Header
 }

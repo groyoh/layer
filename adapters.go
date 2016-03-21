@@ -2,6 +2,28 @@ package layer
 
 import "net/http"
 
+// Handler represents an optional supported interface that could be implemented
+// by middleware handlers.
+type Handler interface {
+	HandleHTTP(w http.ResponseWriter, r *http.Request, h http.Handler)
+}
+
+// HandlerFunc represents the required function interface for simple middleware handlers.
+type HandlerFunc func(http.ResponseWriter, *http.Request)
+
+// HandlerFuncNext represents a Negroni-like handler function notation.
+type HandlerFuncNext func(w http.ResponseWriter, r *http.Request, h http.Handler)
+
+// MiddlewareFunc represents the vinci's middleware capable interface.
+type MiddlewareFunc func(h http.Handler) http.Handler
+
+// Plugin represents the required interface.
+type Plugin interface {
+	// Register is designed to allow the plugin developers
+	// to attach multiple middleware layers.
+	Register(Pluggable)
+}
+
 // AdaptFunc adapts the given function polumorphic interface
 // casting into a MiddlewareFunc capable interface.
 //
