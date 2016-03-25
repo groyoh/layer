@@ -58,6 +58,22 @@ func TestFinalErrorHandling(t *testing.T) {
 	st.Expect(t, w.Body, []byte("vinci: internal server error"))
 }
 
+func TestUseFinalHandler(t *testing.T) {
+	mw := New()
+
+	mw.UseFinalHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(503)
+		w.Write([]byte("vinci: service unavailable"))
+	}))
+
+	w := utils.NewWriterStub()
+	req := &http.Request{}
+	mw.Run("request", w, req, nil)
+
+	st.Expect(t, w.Code, 503)
+	st.Expect(t, w.Body, []byte("vinci: service unavailable"))
+}
+
 func TestSimpleMiddlewareCallChain(t *testing.T) {
 	mw := New()
 
