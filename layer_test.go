@@ -26,6 +26,19 @@ func TestMiddleware(t *testing.T) {
 	st.Expect(t, w.Header().Get("foo"), "bar")
 }
 
+func TestNoHandlerRegistered(t *testing.T) {
+	mw := New()
+
+	st.Expect(t, mw.Pool["request"], (*Stack)(nil))
+
+	w := utils.NewWriterStub()
+	req := &http.Request{}
+	mw.Run("request", w, req, nil)
+
+	st.Expect(t, w.Code, 502)
+	st.Expect(t, w.Body, []byte("vinci: no route configured"))
+}
+
 func TestFinalErrorHandling(t *testing.T) {
 	mw := New()
 
