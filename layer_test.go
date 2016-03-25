@@ -81,6 +81,18 @@ func TestSimpleMiddlewareCallChain(t *testing.T) {
 	st.Expect(t, calls, 4)
 }
 
+func TestFlush(t *testing.T) {
+	mw := New()
+
+	mw.Use("request", func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			h.ServeHTTP(w, r)
+		})
+	})
+	mw.Flush()
+	st.Expect(t, mw.Pool, Pool{})
+}
+
 func BenchmarkLayerRun(b *testing.B) {
 	w := utils.NewWriterStub()
 	req := &http.Request{}
