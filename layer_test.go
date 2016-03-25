@@ -74,6 +74,39 @@ func TestUseFinalHandler(t *testing.T) {
 	st.Expect(t, w.Body, []byte("vinci: service unavailable"))
 }
 
+func TestUsePriority(t *testing.T) {
+	mw := New()
+
+	mw.UseFinalHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(503)
+		w.Write([]byte("vinci: service unavailable"))
+	}))
+
+	array := []int{}
+
+	buildAppendingMiddleware := func(before, after int) interface{} {
+		return func(h http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				array = append(array, before)
+				h.ServeHTTP(w, r)
+				array = append(array, after)
+			})
+		}
+	}
+	mw.UsePriority("request", Normal, buildAppendingMiddleware(3, 10))
+	mw.UsePriority("request", Tail, buildAppendingMiddleware(5, 8))
+	mw.UsePriority("request", Head, buildAppendingMiddleware(1, 12))
+	mw.UsePriority("request", Tail, buildAppendingMiddleware(6, 7))
+	mw.UsePriority("request", Head, buildAppendingMiddleware(2, 11))
+	mw.UsePriority("request", Normal, buildAppendingMiddleware(4, 9))
+
+	w := utils.NewWriterStub()
+	req := &http.Request{}
+	mw.Run("request", w, req, nil)
+
+	st.Expect(t, array, []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12})
+}
+
 func TestSimpleMiddlewareCallChain(t *testing.T) {
 	mw := New()
 
