@@ -7,6 +7,18 @@ import (
 	"testing"
 )
 
+type plugin struct {
+	middleware interface{}
+}
+
+func (p *plugin) Register(mw Pluggable) {
+	mw.Use(RequestPhase, p.middleware)
+}
+
+func newPlugin(f interface{}) *plugin {
+	return &plugin{middleware: f}
+}
+
 func TestMiddleware(t *testing.T) {
 	mw := New()
 
@@ -72,6 +84,37 @@ func TestUseFinalHandler(t *testing.T) {
 
 	st.Expect(t, w.Code, 503)
 	st.Expect(t, w.Body, []byte("vinci: service unavailable"))
+}
+
+func TestRegisterPlugin(t *testing.T) {
+	mw := New()
+
+	p := newPlugin(func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("foo", "bar")
+			h.ServeHTTP(w, r)
+		})
+	})
+	mw.Use(RequestPhase, p)
+
+	st.Expect(t, mw.Pool["request"].Len(), 1)
+
+	w := utils.NewWriterStub()
+	req := &http.Request{}
+	mw.Run("request", w, req, nil)
+
+	st.Expect(t, w.Header().Get("foo"), "bar")
+}
+
+func TestRegisterUnsupportedInterface(t *testing.T) {
+	defer func() {
+		r := recover()
+		st.Expect(t, r, "vinci: unsupported middleware interface")
+	}()
+
+	mw := New()
+
+	mw.Use(RequestPhase, func() {})
 }
 
 func TestUsePriority(t *testing.T) {
