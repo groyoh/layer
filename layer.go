@@ -140,9 +140,7 @@ func (s *Layer) Run(phase string, w http.ResponseWriter, r *http.Request, h http
 
 	stack := s.Pool[phase]
 	if stack == nil {
-		if phase != "error" {
-			h.ServeHTTP(w, r)
-		}
+		h.ServeHTTP(w, r)
 		return
 	}
 

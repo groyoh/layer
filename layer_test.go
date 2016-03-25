@@ -26,6 +26,25 @@ func TestMiddleware(t *testing.T) {
 	st.Expect(t, w.Header().Get("foo"), "bar")
 }
 
+func TestFinalErrorHandling(t *testing.T) {
+	mw := New()
+
+	mw.Use("request", func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			panic("something went wrong")
+		})
+	})
+
+	st.Expect(t, mw.Pool["request"].Len(), 1)
+
+	w := utils.NewWriterStub()
+	req := &http.Request{}
+	mw.Run("request", w, req, nil)
+
+	st.Expect(t, w.Code, 500)
+	st.Expect(t, w.Body, []byte("vinci: internal server error"))
+}
+
 func TestSimpleMiddlewareCallChain(t *testing.T) {
 	mw := New()
 
